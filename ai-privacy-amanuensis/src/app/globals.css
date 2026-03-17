@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-border: var(--brand-border);
+}
+
+:root {
+  --brand-primary: #facc15;
+  --brand-bg: #000000;
+  --brand-border: rgba(250, 204, 21, 0.3);
+}
+
+:root[data-theme='tokyo-night'] {
+  --brand-primary: #facc15;
+  --brand-bg: #000000;
+  --brand-border: rgba(250, 204, 21, 0.3);
+}
+
+:root[data-theme='clinical-high'] {
+  --brand-primary: #000080;
+  --brand-bg: #ffffff;
+  --brand-border: rgba(0, 0, 128, 0.3);
+}
+
+body {
+  color: var(--brand-primary);
+  background: var(--brand-bg);
+  font-family: system-ui, -apple-system, sans-serif;
+  caret-color: var(--brand-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* High contrast focus styles */
+*:focus-visible {
+  outline: 4px solid var(--brand-primary);
+  outline-offset: 4px;
+}
