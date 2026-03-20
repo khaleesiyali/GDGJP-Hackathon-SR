@@ -66,3 +66,10 @@ When the pipeline completes, it generates the following files:
 
 * **`transparent_text.pdf`**: A transparent layer PDF containing only the generated text/answers.
 * **`Final_Filled_Application.pdf`**: The final, merged PDF ready for submission.
+
+
+
+## LiveKit creds
+LIVEKIT_URL=wss://jing-139sv34p.livekit.cloud
+LIVEKIT_API_KEY=APIDEhbphUuktPc
+LIVEKIT_API_SECRET=QHhPj1sA9t2bBQZJysHwCezpHyMEAC6ilqHTUj9cAGM

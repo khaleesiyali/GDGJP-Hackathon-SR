@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Mic, ArrowRight, CornerDownLeft } from "lucide-react";
+import { Mic, MicOff, ArrowRight, CornerDownLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { 
+  LiveKitRoom, 
+  RoomAudioRenderer, 
+  useLocalParticipant,
+  useVoiceAssistant
+} from "@livekit/components-react";
+import "@livekit/components-styles";
 
 const QUESTIONS = [
   {
@@ -24,41 +31,58 @@ const QUESTIONS = [
   }
 ];
 
-export default function FormView() {
-  const router = useRouter();
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [token, setToken] = useState("");
-  const [isConnecting, setIsConnecting] = useState(true);
-
-  useEffect(() => {
-    const getToken = async () => {
-      try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-        const response = await fetch(`${backendUrl}/get_token?room_name=form-session&participant_name=user-demo`);
-        if (!response.ok) throw new Error("Backend error");
-        const data = await response.json();
-        setToken(data.token);
-      } catch (error) {
-        setToken("mock-token-for-demo");
-      } finally {
-        setIsConnecting(false);
+// Inner Room Component that has access to LiveKit hooks
+function FormSession({ 
+  currentIdx, 
+  handleNext 
+}: { 
+  currentIdx: number, 
+  handleNext: () => void 
+}) {
+  const { localParticipant } = useLocalParticipant();
+  let voiceAssistant;
+  try {
+    // Attempt to use the voice assistant hook if available
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    voiceAssistant = useVoiceAssistant();
+  } catch (e) {
+    // Fallback if the component version behaves differently
+    voiceAssistant = { state: "disconnected" };
+  }
+  
+  const agentState = voiceAssistant?.state || "disconnected";
+  const isMicOn = localParticipant?.isMicrophoneEnabled;
+  
+  const toggleMic = async () => {
+    if (localParticipant) {
+      if (isMicOn) {
+        await localParticipant.setMicrophoneEnabled(false);
+      } else {
+        await localParticipant.setMicrophoneEnabled(true);
       }
-    };
-    getToken();
-  }, []);
-
-  const handleNext = () => {
-    if (currentIdx < QUESTIONS.length - 1) {
-      setCurrentIdx(currentIdx + 1);
-    } else {
-      router.push("/success");
     }
   };
 
   const currentQ = QUESTIONS[currentIdx];
 
+  // Determine UI Status
+  let statusText = "マイクオフ";
+  if (isMicOn) {
+    if (agentState === "speaking") {
+      statusText = "エージェントが発言中...";
+    } else if (agentState === "thinking" || agentState === "initializing") {
+      statusText = "処理中...";
+    } else {
+      statusText = "聞き取り中...";
+    }
+  }
+
+  const isAnimating = isMicOn || agentState === "speaking" || agentState === "thinking";
+
   return (
     <div className="flex flex-col h-full w-full justify-between bg-[var(--brand-bg)] p-6 transition-colors duration-300">
+      <RoomAudioRenderer />
+      
       {/* Header */}
       <header className="w-full flex justify-between items-center mb-6 mt-6 text-[var(--brand-primary)]">
         <Link 
@@ -73,24 +97,9 @@ export default function FormView() {
             <span className="font-bold text-sm tracking-widest text-[var(--brand-primary)]">{currentIdx + 1} / {QUESTIONS.length}</span>
           </div>
           
-          {/* Backend Connection Status */}
           <div className="text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 opacity-80" aria-live="polite">
-            {isConnecting ? (
-              <>
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                <span aria-label="接続中...">接続中...</span>
-              </>
-            ) : token !== "mock-token-for-demo" ? (
-              <>
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-green-500 text-opacity-90" aria-label="バックエンド接続完了">接続完了</span>
-              </>
-            ) : (
-              <>
-                <div className="w-2 h-2 bg-red-500 rounded-full" />
-                <span className="text-red-500 text-opacity-90" aria-label="デモモード">デモモード</span>
-              </>
-            )}
+            <div className="w-2 h-2 bg-green-500 rounded-full" />
+            <span className="text-green-500 text-opacity-90" aria-label="バックエンド接続完了">接続完了</span>
           </div>
         </div>
       </header>
@@ -117,9 +126,9 @@ export default function FormView() {
           {[...Array(15)].map((_, i) => (
             <div 
               key={i} 
-              className="w-3 bg-[var(--brand-primary)] rounded-full animate-pulse"
+              className={`w-3 bg-[var(--brand-primary)] rounded-full ${isAnimating ? "animate-pulse" : "opacity-30"}`}
               style={{
-                height: `${Math.max(20, Math.random() * 100)}%`,
+                height: isAnimating ? `${Math.max(20, Math.random() * 100)}%` : "20%",
                 animationDelay: `${i * 0.1}s`,
                 animationDuration: `${0.5 + Math.random()}s`
               }}
@@ -127,13 +136,21 @@ export default function FormView() {
           ))}
         </div>
 
-        <p className="text-[var(--brand-primary)]/80 uppercase tracking-widest text-sm font-bold mb-8 animate-pulse">
-          <span aria-label="聞き取り中...">聞き取り中...</span>
+        <p className={`text-[var(--brand-primary)]/80 uppercase tracking-widest text-sm font-bold mb-8 ${isAnimating ? "animate-pulse" : ""}`}>
+          <span aria-label={statusText}>{statusText}</span>
         </p>
         
         <div className="w-full flex justify-between items-center px-4">
-          <button className="h-16 w-16 bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] rounded-full flex items-center justify-center hover:bg-[var(--brand-primary)] hover:text-[var(--brand-bg)] transition-colors border border-[var(--brand-primary)]/30" aria-label="録音をコントロール">
-             <Mic size={32} />
+          <button 
+            onClick={toggleMic}
+            className={`h-16 w-16 rounded-full flex items-center justify-center transition-all border-2 ${
+              isMicOn 
+                ? "bg-[var(--brand-primary)] text-[var(--brand-bg)] border-[var(--brand-primary)] shadow-[0_0_20px_var(--brand-primary)] scale-110" 
+                : "bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] border-[var(--brand-primary)]/30 hover:bg-[var(--brand-primary)]/30"
+            }`}
+            aria-label="マイクをコントロール"
+          >
+             {isMicOn ? <Mic size={32} /> : <MicOff size={32} />}
           </button>
           
           <button 
@@ -147,5 +164,83 @@ export default function FormView() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// Main View wrapping the Session in a LiveKitRoom
+export default function FormView() {
+  const router = useRouter();
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [token, setToken] = useState("");
+  const [isConnecting, setIsConnecting] = useState(true);
+
+  useEffect(() => {
+    const getToken = async () => {
+      try {
+        let ptName = sessionStorage.getItem("amanai_pt_name");
+        if (!ptName) {
+           ptName = `user-${Math.random().toString(36).substring(7)}`;
+           sessionStorage.setItem("amanai_pt_name", ptName);
+        }
+        // Use our new local Next.js API route instead of the external python server
+        const response = await fetch(`/api/token?room_name=form-session&participant_name=${ptName}`);
+        
+        if (!response.ok) throw new Error("Backend error fetching token");
+        
+        const data = await response.json();
+        setToken(data.token);
+      } catch (error) {
+        console.error("Token fetch failed:", error);
+        setToken(""); // We actually require a token to connect to LiveKit
+      } finally {
+        setIsConnecting(false);
+      }
+    };
+    getToken();
+  }, []);
+
+  const handleNext = () => {
+    if (currentIdx < QUESTIONS.length - 1) {
+      setCurrentIdx(currentIdx + 1);
+    } else {
+      router.push("/success");
+    }
+  };
+
+  const liveKitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://jing-139sv34p.livekit.cloud";
+
+  if (isConnecting) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center bg-[var(--brand-bg)] text-[var(--brand-primary)]">
+        <div className="w-12 h-12 bg-yellow-400 rounded-full animate-bounce mb-4 shadow-[0_0_30px_#FACC15]" />
+        <h1 className="text-xl font-bold tracking-widest uppercase animate-pulse">接続中...</h1>
+      </div>
+    );
+  }
+
+  if (!token) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center bg-[var(--brand-bg)] text-red-500">
+        <h1 className="text-2xl font-bold tracking-widest">バックエンド接続エラー</h1>
+        <p className="mt-4 opacity-80">ライブキットのトークンが取得できませんでした。</p>
+        <p className="mt-2 text-sm opacity-60">Pythonバックエンドが起動しているか確認してください。</p>
+        <Link href="/" className="mt-8 px-6 py-3 border-2 border-red-500 rounded-full hover:bg-red-500 hover:text-white transition-colors">
+          ハブに戻る
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <LiveKitRoom
+      serverUrl={liveKitUrl}
+      token={token}
+      connect={true}
+      audio={true} 
+      video={false}
+      className="h-screen w-full"
+    >
+      <FormSession currentIdx={currentIdx} handleNext={handleNext} />
+    </LiveKitRoom>
   );
 }

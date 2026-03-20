@@ -1,24 +1,94 @@
 "use client";
 
 import Link from "next/link";
-import { Folder, Camera, User, Mic, Sun, Moon } from "lucide-react";
+import { Folder, Camera, User, Mic, Sun, Moon, Loader } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
+import { 
+  LiveKitRoom, 
+  RoomAudioRenderer, 
+  useLocalParticipant,
+  useVoiceAssistant,
+  useRoomContext
+} from "@livekit/components-react";
+import { RoomEvent } from "livekit-client";
+import { useRouter } from "next/navigation";
+import "@livekit/components-styles";
 
-export default function Hub() {
-  const { theme, toggleTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [orbState, setOrbState] = useState<"idle" | "listening" | "processing" | "success">("idle");
+// The interactive inner component logic
+function HubSession({ 
+  shouldDisconnect,
+  setHasConnected 
+}: { 
+  shouldDisconnect: boolean,
+  setHasConnected: (v: boolean) => void 
+}) {
+  const room = useRoomContext();
+  const router = useRouter();
+  const { localParticipant } = useLocalParticipant();
+  let voiceAssistant;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    voiceAssistant = useVoiceAssistant();
+  } catch (e) {
+    voiceAssistant = { state: "disconnected" };
+  }
+  
+  const agentState = voiceAssistant?.state || "disconnected";
+  const isMicOn = localParticipant?.isMicrophoneEnabled;
+  
+  // As soon as room mounts, turn on mic so agent can hear "hello"
+  useEffect(() => {
+    if (localParticipant && !isMicOn && agentState !== "disconnected") {
+      localParticipant.setMicrophoneEnabled(true).catch(console.error);
+    }
+  }, [localParticipant, isMicOn, agentState]);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (agentState !== "disconnected") setHasConnected(true);
+  }, [agentState, setHasConnected]);
 
-  const handleOrbClick = () => {
-    if (orbState === "idle") setOrbState("listening");
-    else if (orbState === "listening") setOrbState("processing");
-    else if (orbState === "processing") setOrbState("success");
-    else setOrbState("idle");
-  };
+  useEffect(() => {
+    if (shouldDisconnect && localParticipant) {
+      localParticipant.setMicrophoneEnabled(false);
+    }
+  }, [shouldDisconnect, localParticipant]);
+
+  // Voice Navigation via DataChannel
+  useEffect(() => {
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        const data = JSON.parse(text);
+        if (data.action === "navigate" && data.destination) {
+          router.push(data.destination);
+        }
+      } catch (e) {
+        // ignore non-json messages
+      }
+    };
+
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
+  }, [room, router]);
+
+  // Map Agent state to our visually custom Orb states
+  let orbVisual: "idle" | "listening" | "processing" | "success" = "idle";
+  let statusText = "接続完了。お話しください";
+
+  if (agentState === "speaking") {
+    orbVisual = "listening"; // Rings for speaking
+    statusText = "エージェントが発言中...";
+  } else if (agentState === "thinking" || agentState === "initializing") {
+    orbVisual = "processing"; // Swirls
+    statusText = "処理中...";
+  } else if (agentState === "listening" || isMicOn) {
+    orbVisual = "listening";
+    statusText = "聞き取り中...";
+  }
 
   const orbVariants = {
     idle: {
@@ -49,19 +119,112 @@ export default function Hub() {
     }
   };
 
-  const statusText = {
-    idle: "タップして話す",
-    listening: "聞き取り中...",
-    processing: "処理中...",
-    success: "完了"
+  return (
+    <>
+      <RoomAudioRenderer />
+      {/* Background ripples */}
+      {orbVisual === "idle" && (
+        <div className="absolute w-48 h-48 bg-[var(--brand-primary)] opacity-20 rounded-full animate-ping" />
+      )}
+
+      {/* Processing Swirls */}
+      {orbVisual === "processing" && (
+        <motion.div
+          className="absolute w-56 h-56 border-[4px] border-dashed border-[var(--brand-primary)] rounded-full opacity-40"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+        />
+      )}
+
+      {/* Listening Rings */}
+      {orbVisual === "listening" && (
+        <>
+          <motion.div
+            className="absolute w-48 h-48 rounded-full border-2 border-[var(--brand-primary)] opacity-30"
+            animate={{ scale: [1, 2], opacity: [0.6, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+          <motion.div
+            className="absolute w-48 h-48 rounded-full border-2 border-[var(--brand-primary)] opacity-30"
+            animate={{ scale: [1, 2], opacity: [0.6, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
+          />
+        </>
+      )}
+
+      {/* Core Orb */}
+      <motion.button
+        variants={orbVariants}
+        animate={orbVisual}
+        className="w-32 h-32 rounded-full flex items-center justify-center text-[var(--brand-bg)] shadow-[0_0_40px_var(--brand-border)] z-10 cursor-default border-none outline-none focus:outline-none"
+        aria-label="音声アシスタント接続済み"
+      >
+        <Mic size={48} strokeWidth={2.5} />
+      </motion.button>
+      
+      {/* Overlay Status text below orb */}
+      <div className="absolute top-48 w-full flex justify-center pointer-events-none">
+         <p className="text-lg font-bold tracking-widest uppercase animate-pulse text-[var(--brand-primary)]">
+            <span aria-label={statusText}>{statusText}</span>
+         </p>
+      </div>
+    </>
+  );
+}
+
+// Main page component
+export default function Hub() {
+  const { theme, toggleTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [token, setToken] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [hasConnected, setHasConnected] = useState(false);
+  const [showNav, setShowNav] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const handleOrbClick = async () => {
+    if (token) {
+      // Already connected, show navigation button
+      setShowNav(true);
+      return;
+    }
+    
+    setIsConnecting(true);
+    try {
+      let ptName = sessionStorage.getItem("amanai_pt_name");
+      if (!ptName) {
+        ptName = `user-${Math.random().toString(36).substring(7)}`;
+        sessionStorage.setItem("amanai_pt_name", ptName);
+      }
+      
+      const response = await fetch(`/api/token?room_name=form-session&participant_name=${ptName}`);
+      if (!response.ok) throw new Error("Failed token fetch");
+      const data = await response.json();
+      setToken(data.token);
+    } catch (e) {
+      console.error(e);
+      setIsConnecting(false);
+    }
   };
+
+  const orbVariants: any = {
+    idle: {
+      scale: [1, 1.05, 1],
+      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+      backgroundColor: "var(--brand-primary)",
+      boxShadow: "0 0 40px var(--brand-border)"
+    }
+  };
+
+  const liveKitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://jing-139sv34p.livekit.cloud";
 
   return (
     <div className="flex flex-col h-full w-full justify-between items-center relative p-6">
       {/* Header */}
       <header className="w-full relative mt-8 flex justify-center items-center">
         <div className="text-center">
-          <h1 className="text-3xl font-extrabold" aria-label="Amanuensis">
+          <h1 className="text-3xl font-extrabold text-[var(--brand-primary)]" aria-label="Amanuensis">
             AmanAI
           </h1>
           <p className="text-[var(--brand-primary)] opacity-70 text-sm mt-2 font-medium">
@@ -82,66 +245,58 @@ export default function Hub() {
 
       {/* Main Center - Pulsating Orb */}
       <div className="flex-1 flex items-center justify-center flex-col w-full relative">
-        <div className="relative group flex items-center justify-center mt-12 mb-8" aria-live="polite">
-
-          {/* Background ripples */}
-          {orbState === "idle" && (
-            <div className="absolute w-48 h-48 bg-[var(--brand-primary)] opacity-20 rounded-full animate-ping" />
-          )}
-
-          {/* Processing Swirls */}
-          {orbState === "processing" && (
-            <motion.div
-              className="absolute w-56 h-56 border-[4px] border-dashed border-[var(--brand-primary)] rounded-full opacity-40"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-            />
-          )}
-
-          {/* Listening Rings */}
-          {orbState === "listening" && (
-            <>
-              <motion.div
-                className="absolute w-48 h-48 rounded-full border-2 border-[var(--brand-primary)] opacity-30"
-                animate={{ scale: [1, 2], opacity: [0.6, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+        <div className="relative group flex flex-col items-center justify-center mt-12 mb-8" aria-live="polite">
+          
+          {token ? (
+            <LiveKitRoom
+              serverUrl={liveKitUrl}
+              token={token}
+              connect={true}
+              audio={true}
+              video={false}
+              className="flex items-center justify-center w-full h-full"
+            >
+              <HubSession 
+                shouldDisconnect={showNav}
+                setHasConnected={setHasConnected} 
               />
-              <motion.div
-                className="absolute w-48 h-48 rounded-full border-2 border-[var(--brand-primary)] opacity-30"
-                animate={{ scale: [1, 2], opacity: [0.6, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0.75 }}
-              />
-            </>
+            </LiveKitRoom>
+          ) : (
+             <>
+              <div className="absolute w-48 h-48 bg-[var(--brand-primary)] opacity-20 rounded-full animate-ping" />
+              <motion.button
+                onClick={handleOrbClick}
+                variants={orbVariants}
+                animate="idle"
+                className="w-32 h-32 rounded-full flex items-center justify-center text-[var(--brand-bg)] shadow-[0_0_40px_var(--brand-border)] z-10 cursor-pointer border-none outline-none focus:outline-none"
+                aria-label="音声アシスタントを起動"
+                disabled={isConnecting}
+              >
+                {isConnecting ? <Loader size={48} className="animate-spin" /> : <Mic size={48} strokeWidth={2.5} />}
+              </motion.button>
+              
+              <div className="h-12 mt-8 flex items-center justify-center">
+                <p className="text-lg font-bold tracking-widest uppercase text-[var(--brand-primary)]">
+                  <span aria-label="タップして話す">
+                    {isConnecting ? "接続中..." : "タップして話す"}
+                  </span>
+                </p>
+              </div>
+             </>
           )}
 
-          {/* Core Orb */}
-          <motion.button
-            onClick={handleOrbClick}
-            variants={orbVariants}
-            animate={orbState}
-            className="w-32 h-32 rounded-full flex items-center justify-center text-[var(--brand-bg)] shadow-[0_0_40px_var(--brand-border)] z-10 cursor-pointer border-none outline-none focus:outline-none"
-            aria-label="音声アシスタントを起動"
-          >
-            <Mic size={48} strokeWidth={2.5} />
-          </motion.button>
         </div>
 
-        <div className="h-12 mt-8 flex items-center justify-center">
-          <p className="text-lg font-bold tracking-widest uppercase animate-pulse">
-            <span aria-label={statusText[orbState]}>{statusText[orbState]}</span>
-          </p>
-        </div>
-
-        <div className="h-16 mt-4">
+        <div className="h-16 mt-16 w-full flex justify-center">
           <AnimatePresence>
-            {orbState === "success" && (
+            {(hasConnected || showNav) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <Link href="/form" className="px-8 py-3 bg-[var(--brand-primary)] text-[var(--brand-bg)] rounded-full font-bold uppercase tracking-wider hover:scale-105 transition-transform flex items-center justify-center shadow-lg shadow-[var(--brand-border)]">
-                  <span aria-label="フォームに進む">フォームに進む</span>
+                <Link href="/form" onClick={() => setShowNav(true)} className="px-8 py-3 bg-[var(--brand-primary)] text-[var(--brand-bg)] rounded-full font-bold uppercase tracking-wider hover:scale-105 transition-transform flex items-center justify-center shadow-lg shadow-[var(--brand-border)]">
+                  <span aria-label="申請を進める">申請を進める →</span>
                 </Link>
               </motion.div>
             )}

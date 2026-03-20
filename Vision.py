@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid 
+import asyncio
 from dotenv import load_dotenv
 
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
@@ -34,7 +35,7 @@ def load_form_from_db(form_id: str):
 
 # 2. Agent (Form filling and Form retrieving)
 class FormAgent(Agent):
-    def __init__(self):
+    def __init__(self, room):
         # Asking user's purpose
         instructions = """
         あなたは日本の区役所の親切な総合案内の職員です。視覚障害のある方を音声でサポートします。
@@ -48,6 +49,7 @@ class FormAgent(Agent):
         3. ツールからシステムメッセージが返ってきたら、その指示に従って自然に会話を続けてください。
         """
         super().__init__(instructions=instructions)
+        self.room = room
         self.current_form_data = None
         self.expected_format = ""
 
@@ -70,6 +72,11 @@ class FormAgent(Agent):
         
         if not self.current_form_data:
             return "システムエラー：該当するフォームが見つかりませんでした。ユーザーに「現在その申請書には対応していません」と謝罪し、他の要件がないか聞いてください。"
+
+        # Trigger Frontend Navigation
+        if self.room:
+            payload = json.dumps({"action": "navigate", "destination": "/form"}).encode('utf-8')
+            asyncio.create_task(self.room.local_participant.publish_data(payload, reliable=True))
 
         properties = self.current_form_data.get("parameters", {}).get("properties", {})
         
@@ -117,8 +124,10 @@ class FormAgent(Agent):
 
     @function_tool(description="ユーザーが過去の申請履歴（マイファイル）を見たいと言った場合に呼び出します。")
     async def open_my_files(self) -> str:
-        # TODO: Add code here to use livekit send signal to frontend
         logger.info("📡 触发信号：通知前端网页跳转到 MyFile 页面！")
+        if self.room:
+            payload = json.dumps({"action": "navigate", "destination": "/files"}).encode('utf-8')
+            asyncio.create_task(self.room.local_participant.publish_data(payload, reliable=True))
         return """
         【システム指示】
         フロントエンドにマイファイルを開くシグナルを送信しました。
@@ -169,7 +178,7 @@ async def entrypoint(ctx: JobContext):
     
     await session.start(
         room=ctx.room,
-        agent=FormAgent()
+        agent=FormAgent(room=ctx.room)
     )
     logger.info("✅ AI connected")
 
