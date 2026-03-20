@@ -1,18 +1,4 @@
-# AI Privacy Amanuensis - Form Implementation Complete ✅
-
-## Overview
-
-The complete form questionnaire flow has been implemented with:
-
-- **Intelligent question progression** from form schema
-- **Text-to-speech** reading questions aloud in Japanese
-- **Visual feedback** with progress indicator (1/4, 2/4, etc.)
-- **Beautiful UI** with prominent yellow question card
-- **Voice input support** with waveform visualization
-- **Complete form data collection** from user answers
-- **Success page** with PDF download capability
-
-## User Flow
+# AmanAI User Flow
 
 ```
 Home Page (/)
