@@ -9,46 +9,31 @@ export default function Success() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const formName = searchParams.get('formName') || '申請フォーム';
-  const submissionId = searchParams.get('submissionId') || `${Date.now()}`;
+  const submissionId = searchParams.get('submission_id') || searchParams.get('submissionId') || 'UNKNOWN_ID';
   const formDataJson = searchParams.get('formData');
   
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   const handleDownloadPDF = async () => {
-    if (!formDataJson) return;
-    
+    if (!submissionId) return;
     try {
       setIsDownloading(true);
-      setDownloadProgress(0);
-
-      const formData = JSON.parse(formDataJson);
-
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('PDF generation failed');
-      }
-
       setDownloadProgress(50);
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      
       const a = document.createElement('a');
-      a.href = url;
+      a.href = `/api/download-pdf?id=${submissionId}`;
       a.download = `${formName}_${submissionId}.pdf`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
       setDownloadProgress(100);
+      
+      // reset progress visually
+      setTimeout(() => {
+        setDownloadProgress(0);
+      }, 1000);
     } catch (error) {
       console.error('Error downloading PDF:', error);
       alert('PDFのダウンロードに失敗しました');
@@ -129,7 +114,7 @@ export default function Success() {
       >
         <button
           onClick={handleDownloadPDF}
-          disabled={isDownloading || !formDataJson}
+          disabled={isDownloading || !submissionId}
           className="w-full h-16 bg-yellow-400 text-slate-900 px-8 rounded-2xl flex items-center justify-center gap-3 font-bold hover:shadow-[0_0_30px_rgba(250,204,21,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
         >
           <Download size={24} />

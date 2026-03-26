@@ -1,0 +1,33 @@
+{
+  "form_name": "submit_nerima_welfare_form",
+  "submission_id": "7b2d13f4",
+  "status": "completed",
+  "answers": {
+    "submission_date": "2026-03-26",
+    "recipient": {
+      "name": "中西",
+      "address_detail": "練馬区二の三",
+      "personal_number": "",
+      "dob": "2000-09-06",
+      "age": "26",
+      "phone": "080-123-4567"
+    },
+    "guardian": {},
+    "certificates": {},
+    "medical": {},
+    "child_disability_allowance_receipt": "無",
+    "facility_admission": {
+      "status": "入所していない"
+    },
+    "public_account_usage": true,
+    "bank_transfer": {
+      "financial_institution_": "",
+      "financial_institution_type": "銀行",
+      "branch_code": "",
+      "branch_name": "にさん",
+      "account_number": "0907897965",
+      "account_kana": "しん"
+    },
+    "proxy": {}
+  }
+}

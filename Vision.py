@@ -357,6 +357,15 @@ class FormAgent(Agent):
             fill_pdf_data(new_file_name, "心身障碍者福祉手当認定申請書Mapping.json", "transparent_text.pdf")
             merge_pdfs("blank_form.pdf", "transparent_text.pdf", final_pdf_name)
             logger.info(f"📄 PDF 生成成功: {final_pdf_name}")
+
+            # Send Navigation Signal to Success Page
+            if self.room:
+                payload = json.dumps({
+                    "action": "navigate", 
+                    "destination": f"/success?submission_id={submission_id}"
+                }).encode('utf-8')
+                asyncio.create_task(self.room.local_participant.publish_data(payload, reliable=True))
+
             return """
             お疲れ様でした。無事に電子署名の録音と申請データの送信が完了し、正式な申請書類が作成されました。
             作成された書類は、アプリ内の「マイファイル」からいつでもご確認いただけます。

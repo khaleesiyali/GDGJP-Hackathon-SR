@@ -66,36 +66,17 @@ export default function MyFiles() {
       return;
     }
 
-    if (!file.data) return;
-    try {
-      setIsDownloading(true);
-      const response = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(file.data),
-      });
-
-      if (!response.ok) throw new Error("PDF generation failed");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${file.form_name}_${file.submission_id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error(e);
-      alert("PDFのダウンロードに失敗しました");
-    } finally {
-      setIsDownloading(false);
-    }
+    // Hit the Next.js streaming API instead of generating it!
+    const a = document.createElement("a");
+    a.href = `/api/download-pdf?id=${file.submission_id}`;
+    a.download = `Final_Filled_${file.submission_id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
-    <div className="min-h-screen w-full bg-[var(--brand-bg)] text-[var(--brand-primary)] p-4 flex flex-col items-center">
+    <div className="h-full overflow-y-auto w-full bg-[var(--brand-bg)] text-[var(--brand-primary)] p-4 flex flex-col items-center">
       {/* Top Header */}
       <div className="w-full max-w-2xl flex items-center justify-between mb-8 mt-4">
         <button
