@@ -346,10 +346,10 @@ export default function Hub() {
         className="w-full bg-[var(--brand-bg)] border border-[var(--brand-border)] rounded-2xl p-4 flex justify-around items-center mb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20"
         aria-label="メインナビゲーション"
       >
-        <button className="flex flex-col items-center gap-1 text-[var(--brand-primary)] opacity-60 hover:opacity-100 transition-opacity">
+        <Link href="/files" className="flex flex-col items-center gap-1 text-[var(--brand-primary)] opacity-60 hover:opacity-100 transition-opacity">
           <Folder size={24} />
           <span className="text-[10px] font-bold tracking-wider" aria-label="ファイル">ファイル</span>
-        </button>
+        </Link>
 
         <button 
           onClick={openScanner}

@@ -1,0 +1,41 @@
+{
+  "form_name": "submit_nerima_welfare_form",
+  "submission_id": "d2324420",
+  "status": "completed",
+  "answers": {
+    "submission_date": "2026-03-25",
+    "recipient": {
+      "name": "和瀬太太郎",
+      "address_detail": "3-13-14",
+      "personal_number": "",
+      "dob": "2000-06-06",
+      "age": "26歳",
+      "phone": "089-123-456"
+    },
+    "guardian": null,
+    "certificates": {
+      "ai_techo": null,
+      "physical_disability_certificate": null,
+      "mental_disability_certificate": null,
+      "special_disease": null
+    },
+    "medical": {
+      "disease_name": ""
+    },
+    "child_disability_allowance_receipt": "無",
+    "facility_admission": {
+      "status": "入所していない",
+      "facility_name": ""
+    },
+    "public_account_usage": true,
+    "bank_transfer": {
+      "financial_institution_": "住友",
+      "financial_institution_type": "銀行",
+      "branch_code": "",
+      "branch_name": "",
+      "account_number": "",
+      "account_kana": ""
+    },
+    "proxy": null
+  }
+}

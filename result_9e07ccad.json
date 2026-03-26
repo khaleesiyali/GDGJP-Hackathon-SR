@@ -1,0 +1,34 @@
+{
+  "form_name": "submit_nerima_welfare_form",
+  "submission_id": "9e07ccad",
+  "status": "completed",
+  "answers": {
+    "submission_date": "2026-03-25",
+    "recipient": {
+      "name": "早稲田太郎",
+      "address_detail": "3、13、14",
+      "personal_number": "",
+      "dob": "2004-04-18",
+      "age": "22",
+      "phone": "123456789"
+    },
+    "guardian": null,
+    "certificates": {},
+    "medical": {
+      "disease_name": ""
+    },
+    "child_disability_allowance_receipt": "無",
+    "facility_admission": {
+      "status": "入所していない",
+      "facility_name": ""
+    },
+    "public_account_usage": false,
+    "bank_transfer": {
+      "financial_institution_": "早稲田銀行",
+      "branch_name": "早稲田支店",
+      "account_number": "12345",
+      "account_kana": ""
+    },
+    "proxy": null
+  }
+}
