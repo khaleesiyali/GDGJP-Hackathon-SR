@@ -210,12 +210,33 @@ class FormAgent(Agent):
 
         【会話のルール】
         1. ユーザーに対して、自然で温かいトーンで話しかけてください。
-        2. 一度に1つの質問だけをユーザーに聞いてください。
-        3. **絶対に忘れないでください**: 新しい質問をする前には、**必ず `update_ui_card` ツールを呼び出して**、画面の表示を現在聞こうとしている質問内容に更新してください。
-        4. ツールからシステムメッセージが返ってきたら、自然に会話を続けてください。
+        2. **絶対に忘れないでください**: 新しい質問をする前には、**必ず `update_ui_card` ツールを呼び出して**、画面の表示を現在聞こうとしている質問内容に更新してください。
+        3. ツールからシステムメッセージが返ってきたら、自然に会話を続けてください。
+        4. ⭐️【音声署名の要求】ユーザーが復唱内容に同意したら、最後に必ず「ありがとうございます。最後に電子署名として、ご本人確認の録音を行います。『この内容で申請します』と声に出して宣言してください。」とお願いしてください。
+        【絶対厳守の会話・業務ルール】
+        1. 【質問のペース】絶対に箇条書き（1. 2. 3...）で大量の質問を列挙しないでください！視覚障害のある方が覚えやすいよう、**一度の会話で聞くのは「関連する1〜2項目」まで**に制限してください。
+        2. 🛑【絶対停止：氏名の漢字分解ルビ確認（最高優先度）】ユーザーの氏名を聞き取った直後は、他の質問を一旦停止してください。聞き取った名前の漢字を**一文字ずつ、その漢字を含む「誰もが知っている一般的な単語」を使って**説明し、ユーザーに確認を求めてください。
+            ⚠️【警告：特定の単語の使い回し禁止】入力された名前に合わせて、その都度適切な単語を動的に生成してください。
+            発言フォーマット：「[氏名]様ですね。漢字の確認ですが、1文字目は[その漢字を使った一般的な単語]の[漢字]、2文字目は[別の一般的な単語]の[漢字]...で合っていますか？」
+            **英語モードの場合**：英語のスペルを**アルファベット1文字ずつ、簡単な英単語（フォネティックコード）を使って**スペルアウトして確認してください（例：「A as in Apple, L as in Lion, I as in Ice... Is that correct?」）。
+            ※ユーザーが「はい」と答えるまで、絶対に住所や電話番号の質問に進んではいけません。
+        3. 【優しくフォロー】不足している項目だけを追加で質問してください。
+        4. 【論理的チェック】ユーザーの回答が質問の意図と明らかに合っていない場合、音声認識エラーと判断し、優しく聞き直してください。
+        5. 【最終確認】全ての必要な情報を集め終わったら、内容をまとめて復唱してください。
+        6. ⭐️【音声署名の要求】ユーザーが復唱内容に同意したら、最後に必ず「ありがとうございます。最後に電子署名として、ご本人確認の録音を行います。『この内容で申請します』と声に出して宣言してください。」とお願いしてください。
+        7. 【途中終了の対応】ユーザーが記入の終了を明言した場合は、残りの未記入項目の質問をスキップし、直ちに【最終確認】と【音声署名の要求】に進んでください。
+        8. 【送信条件】ユーザーが上記の宣言を声に出して言ったのを確認した後のみ、`submit_form_data` を呼び出してください。
+        9. ⚠️【厳密なデータフォーマット】`submit_form_data` に渡すJSON構造は完全に維持してください。収集できなかった項目は `null` または `""` にしてください。
+        10. 【徹底質問】ユーザーが「途中終了」を宣言しない限り、全項目が埋まるまで質問を続けてください、途中終了にしても最後に電子署名が必要です。
+        11. 【言語モードの厳格な切り替えとデータ分離】
+            - ⚠️**音声による切り替えの絶対ルール**: ユーザーが音声で「英語で話して」等と要求した場合、**絶対にその場ですぐに言語を切り替えないでください**。まずは必ず「英語に切り替えますか？ Would you like to switch to English?」とバイリンガルで質問し、同意を待ってください。
+            - **同意後のモード固定**: ユーザーが同意した後、初めてモードを完全に切り替えます。以降は言語を混ぜることは厳禁です。
+            - **データ保存の絶対ルール**: 会話が英語モードであっても、JSONに保存するデータは絶対に日本語に翻訳して記録してください。
+        12.🚫【システム用語・関数名の発言禁止（超重要）】ユーザーとの会話中に、`update_ui_card`、`submit_form_data`、`JSON`、`関数`、`ツール`、`システム` などの内部プログラム用語や英語の関数名を絶対に口に出さないでください。「画面の表示を更新します」「申請の送信処理を行います」のように、人間のアシスタントとして極めて自然な言葉に置き換えて話してください。
         """
         super().__init__(instructions=instructions)
         self.room = room
+        self.base_instructions = instructions
         self.current_form_data = None
         self.expected_format = ""
         self.last_submission = None
@@ -260,31 +281,14 @@ class FormAgent(Agent):
         logger.info(f"Successfully loading [{form_name}]，ready for action")
 
         # Core rules
-        return f"""
-        【システム指示：ここからモードを切り替えてください】
-        フォーム「{form_name}」がロードされました。
-        ここからは「申請書記入サポート係」として振る舞い。
+        return f"""【システム指示：ここからモードを切り替えてください】
+        フォーム「{form_name}」がロードされました。ここからは「申請書記入サポート係」として振る舞い。
+        
         ⚠️【最優先アクション：フォームの確認】⚠️
         まずはユーザーに「{form_name}ですね。こちらの作成を始めてもよろしいでしょうか？」とだけ聞いて、ユーザーの同意（「はい」「お願いします」など）を待ってください。同意を得る前に、個人情報の質問を始めてはいけません！
+        
         以下の項目をユーザーに質問してください：
         {missing_fields_str}
-
-        会話のルール:
-        1. 【【質問のペース（超重要）】絶対に箇条書き（1. 2. 3...）で大量の質問を列挙しないでください！視覚障害のある方が音声で覚えやすいよう、**一度の会話で聞くのは「関連する1〜2項目」まで**に制限してください。（例：「次に、各種手帳はお持ちでしょうか？また、何か具体的な病名があれば教えていただけますか？」のように、自然な対話のキャッチボールを心がけてください）。
-        2. 【超重要：漢字の確認（一文字ずつ）】氏名を聞き取った後、必ず**一文字ずつ漢字を使った単語を挙げて確認**してください。（例：「『山』は富士山の『山』、『田』は田んぼの『田』で合っていますか？」）。ユーザーが「はい」と全て正しいことに同意するまで、絶対に次の質問に進まないでください。
-        3. 【優しくフォロー】不足している項目だけを追加で質問してください。
-        4. 【論理的チェック（聞き間違い防止）】ユーザーの回答が質問の意図と明らかに合っていない場合（例：住所を聞いているのに「はい」と答えた、電話番号に文字が含まれる等）、音声認識エラーと判断し、「すみません、うまく聞き取れませんでした。もう一度〇〇を教えていただけますか？」と優しく聞き直してください。
-        5. 【最終確認】全ての必要な情報を集め終わったら、内容をまとめて復唱してください。
-        6. ⭐️【音声署名の要求】ユーザーが復唱内容に同意したら、最後に必ずこうお願いしてください：
-        「ありがとうございます。最後に電子署名として、ご本人確認の録音を行います。『この内容で申請します』と声に出して宣言してください。」
-        7. 【途中終了の対応（スキップ）】もしユーザーが「もうこれだけでいい」「残りはスキップして」「ここまでにしたい」など、記入の終了を明言した場合は、残りの未記入項目（JSONに存在しても）の質問をすべてスキップし、直ちに【最終確認】と【音声署名の要求】に進んでください。
-        8. 【送信条件】ユーザーが上記の宣言を声に出して言ったのを確認した後のみ、`submit_form_data` を呼び出してください。
-        9. ⚠️【超重要：厳密なデータフォーマット】⚠️
-        `submit_form_data` に渡す `updated_json_string` は、必ず以下のJSON構造(スキーマ)を完全に維持してください!勝手に構造をFlattenしたり、キーの名前を変えたりすることは絶対に禁止です。収集できなかった項目は `null` または `""` にしてください。
-        10. ⚠️【超重要：画面UIの更新】⚠️ ユーザーに新しい質問をする直前には、**必ず `update_ui_card` ツールを呼び出して**、画面のカードを更新してください（例：title="お電話番号", description="日中連絡がつく電話番号を教えてください"）。このアクションは毎回の質問で必須です。
-        11. 【徹底質問】ユーザーが「途中終了」を宣言しない限り、JSONフォーマットに存在する項目はすべて埋まるまで質問を続けてください（18歳以上の場合の保護者欄などは文脈で判断してスキップ可）。
-        12. 【英語対応とデータ言語の分離】基本は日本語で対話しますが、ユーザーが「英語で話して (Speak in English)」等と要求した場合は、それ以降の**会話（音声）は英語**で行ってください。ただし、**JSONに保存するデータ内容は絶対に日本語**に翻訳して記録してください（例：User says "Tokyo", record as "東京都"）。
-
 
         【必須の出力JSON構造テンプレート】:
         {self.expected_format}
@@ -293,7 +297,7 @@ class FormAgent(Agent):
     # Form retrieving Mode
 # ----------------------------------------------------   
 
-    @function_tool(description="新しい質問をする直前に【必ず・毎回】呼び出します。画面のUIカードを更新します。titleは質問の短い見出し（例:「お電話番号」「ご住所」）、descriptionは画面に表示する詳しい説明文を指定します。")
+    @function_tool(description="新しい質問をする直前に【必ず・毎回】呼び出します。画面のUIカードを更新します。titleは質問の短い見出し、descriptionは画面に表示する詳しい説明文を指定します。（※現在ユーザーと話している言語に合わせて、titleとdescriptionの言語も翻訳して出力してください）")
     async def update_ui_card(self, title: str, description: str) -> str:
         logger.info(f"📡 UIカード動的更新: {title}")
         if self.room:
@@ -333,7 +337,7 @@ class FormAgent(Agent):
 
 
     # 3. Save the data as result_userid.json
-    @function_tool(description="すべての必要な項目が収集できたら、この関数を呼び出してデータを送信します。")
+    @function_tool(description="⚠️【警告：無断送信禁止】全項目が埋まっても、絶対にすぐ呼び出さないでください！必ず先にユーザーへ「『この内容で申請します』と声に出して宣言してください」とお願いし、ユーザーが実際にその言葉を発声したのを確認した場合【のみ】、この関数を実行してデータを送信してください。")
     async def submit_form_data(self, updated_json_string: str) -> str:
         try:
             user_answers = json.loads(updated_json_string)
@@ -379,64 +383,90 @@ class FormAgent(Agent):
 async def entrypoint(ctx: JobContext):
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     
-    
     session = AgentSession(
         stt=openai.STT(), # Removed language="ja" to allow auto-detection for English and Japanese
         llm=openai.LLM(model="gpt-4o-mini"),
         tts=openai.TTS(voice="alloy"),
         vad=silero.VAD.load(min_silence_duration=0.5),
     )
+
+
+async def entrypoint(ctx: JobContext):
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     
+
+    session = AgentSession(
+        stt=openai.STT(),
+        llm=openai.LLM(model="gpt-4o-mini"),
+        tts=openai.TTS(voice="alloy"),
+        vad=silero.VAD.load(min_silence_duration=0.5),
+    )
+
+    my_agent = FormAgent(room=ctx.room)
+
     await session.start(
         room=ctx.room,
-        agent=FormAgent(room=ctx.room)
+        agent=my_agent  #
     )
     logger.info("✅ AI connected")
-
+# The Language system and camera system start right here
+# Instead of letting it remember the chat history and repeat based on that (What ctx is doing), I used update instruction.
     @ctx.room.on("data_received")
     def on_data_received(dp: livekit.rtc.DataPacket, **kwargs):
         try:
             payload = json.loads(dp.data.decode("utf-8"))
+            
             if payload.get("action") == "camera_scan":
                 content = payload.get("content", "")
                 logger.info(f"📸 カメラからの書類データを取得しました！\n{content}")
                 
-                # Context Injection
-                session.chat_ctx.messages.append({
-                    "role": "user",
-                    "content": f"【カメラからスキャンした書類のデータ】\n{content}\nこれをもとに、何の書類か特定し、すでに書かれている内容を確認した上で、残りの空欄を埋めるための質問を順番に開始してください。"
-                })
-                # Send prompt to start gathering specific missing info over AI Voice
-                asyncio.create_task(session.say(f"カメラから情報を読み取りました。以下の情報が不足しています。順番に教えてください。\n\n{keys_to_ask_str}", allow_interruptions=True))
+                # Three separate task
+                async def handle_camera_scan():
+                    # 1. Stop all action
+                    session.interrupt() 
+                    # 2. Injecting new command
+                    new_inst = my_agent.base_instructions + f"\n\n【緊急タスク】カメラから以下の情報を読み取りました:\n{content}\nこれをもとに、残りの空欄を埋めるための質問を開始してください。"
+                    await my_agent.update_instructions(new_inst)
+                    # 3. Speaking
+                    session.say("カメラから書類の情報を読み取りました。いくつか確認と、不足している項目について順番に質問させていただきますね。", allow_interruptions=True)
+                    
+                asyncio.create_task(handle_camera_scan())
                     
             elif payload.get("action") == "set_language":
                 lang = payload.get("lang")
                 logger.info(f"Language switched to {lang}")
-                if lang == "en":
-                    session.chat_ctx.messages.append({
-                        "role": "system",
-                        "content": "【SYSTEM INSTRUCTION】The user has switched the language to English. You MUST now speak, ask all questions, and communicate entirely in English. \nCRITICAL RULES:\n1. Your voice and text responses must be in English.\n2. When calling `update_ui_card`, use English for the title and description.\n3. However, the data you collect and fill into the JSON schema MUST be strictly translated into Japanese (e.g., if user says 'Tokyo', save it as '東京都' in the JSON). Do not save English text in the final form payload."
-                    })
-                    asyncio.create_task(session.say("I have switched to English. How can I help you today?", allow_interruptions=True))
-                else:
-                    session.chat_ctx.messages.append({
-                        "role": "system",
-                        "content": "【SYSTEM INSTRUCTION】ユーザーが言語を日本語に切り替えました。これ以降はすべて日本語で話し、UIカードも日本語にしてください。JSONへの入力も通常通り日本語で行ってください。"
-                    })
-                    asyncio.create_task(session.say("日本語に切り替えました。引き続きよろしくお願いいたします。", allow_interruptions=True))
+                
+                async def force_switch_language():
+                    # 1. Stop talking
+                    session.interrupt() 
+                    
+                    if lang == "en":
+                        # 2. Injecting
+                        # 🌟 加强版英文洗脑包：点名道姓要求翻译 title 和 description
+                        new_inst = my_agent.base_instructions + "\n\n【CRITICAL OVERRIDE】ユーザーがUIボタンで英語モードに切り替えました。これ以降の会話は100%完全に英語で行ってください。さらに、ツール機能の仕様に関わらず、**`update_ui_card` ツールを呼び出す際の `title` と `description` の引数も【必ず英語に翻訳して】出力してください**。⚠️【絶対厳守：JSONデータの行政標準日本語化】⚠️ ただし、JSONに保存する「すべての回答データ(Value)」は、ユーザーが英語で発話した内容であっても、**日本の区役所に提出できる正式な日本語フォーマット（適切な漢字・ひらがな・カタカナを用いた表記）**に必ず翻訳・変換して保存してください。（例: 'Tokyo, Nerima Ward' と言われたら必ず '東京都練馬区' に変換し、'Nelima Building' のような建物名はそのままカタカナや英語で正確に記録すること）。アルファベットの直訳や不自然な日本語での保存は厳禁です。"
+                        await my_agent.update_instructions(new_inst)
+                        # 3. talking
+                        session.say("英語に切り替えますか？ Would you like to switch to English?", allow_interruptions=True)
+                    else:
+                        new_inst = my_agent.base_instructions + "\n\n【CRITICAL OVERRIDE】ユーザーがUIボタンで日本語モードに切り替えました。これ以降は100%完全に日本語のみで会話・UI更新を行ってください。JSON入力も日本語で。"
+                        await my_agent.update_instructions(new_inst)
+                        session.say("日本語に戻しますか？ Would you like to switch back to Japanese?", allow_interruptions=True)
+
+                # 发射任务
+                asyncio.create_task(force_switch_language())
 
         except Exception as e:
             logger.error(f"Error processing data channel message: {e}")
 
-    greeting_text = "こんにちは、Aman　AIです。本日はどのようなお手続きでしょうか？『手当の申請をしたい』や『過去の履歴を見たい』など、ご自由にお話しください。"
+    greeting_text = "こんにちは、Aman AIです。本日はどのようなお手続きでしょうか？『手当の申請をしたい』や『過去の履歴を見たい』など、ご自由にお話しください。"
     
-    # Opening Sentence
     try:
         await session.say(greeting_text, allow_interruptions=True)
         logger.info("🗣️ Start Speaking")
     except AttributeError:
-        # In case the SDK version is too old
         logger.warning("SDK version not compatiable")
-        session.chat_ctx.messages.append({"role": "user", "content": "こんにちは。最初の挨拶をお願いします。"})
+        new_inst = my_agent.instructions + "\n\n最初の挨拶をしてください。"
+        asyncio.create_task(my_agent.update_instructions(new_inst))
+
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

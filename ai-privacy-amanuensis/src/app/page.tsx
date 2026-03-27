@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import AmanAILogo from "./AmanAI LOGO.svg";
+import LightAmanAILogo from "./LM-AmanAI LOGO.svg";
 import { Folder, Camera, User, Mic, Sun, Moon, Loader } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -270,11 +273,14 @@ export default function Hub() {
     <div className="flex flex-col h-full w-full justify-between items-center relative p-6">
       {/* Header */}
       <header className="w-full relative mt-8 flex justify-center items-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-extrabold text-[var(--brand-primary)]" aria-label="Amanuensis">
-            AmanAI
-          </h1>
-          <p className="text-[var(--brand-primary)] opacity-70 text-sm mt-2 font-medium">
+        <div className="text-center flex flex-col items-center">
+          <Image
+            src={theme === "tokyo-night" ? AmanAILogo : LightAmanAILogo}
+            alt="AmanAI Logo"
+            priority
+            className="w-50 md:w-55 h-auto drop-shadow-[0_0_15px_rgba(250,204,21,0.3)] mb-0 -mt-21 md:-mt-6"
+          />
+          <p className="text-[var(--brand-primary)] opacity-70 text-sm font-medium">
             <span aria-label="エンドツーエンド暗号化">{language === "ja" ? "エンドツーエンド暗号化" : "End-to-End Encrypted"}</span>
           </p>
         </div>

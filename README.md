@@ -1,75 +1,50 @@
-##  `Vision.py` 
-This file handles the LiveKit connection and the core logic for the AI Agent's interactions.
+# AmanAI (アマンAI) 🎙️📄
 
-* **`load_form_from_db(form_id: str)`**
-  * **Role:**  *The Database Fetcher*
-  * **What it does:** It takes the form ID the AI guessed (e.g., `"心身障碍者福祉手当認定申請書"`) and opens the corresponding JSON template so the AI knows what questions it needs to ask.
+## 📖 What is this app about? (アプリについて)
 
-* **`__init__(self)`** *(Inside the FormAgent class)*
-  * **Role:**  *The Greeter*
-  * **What it does:** Sets up the AI's initial personality when the user first connects. At this stage, the AI has no form loaded; it simply greets the user and asks, *"Do you want to fill out a new form, or check your past files?"*
+**[English]**
+AmanAI is a privacy-first, voice-driven Progressive Web App (PWA) designed to assist users—especially visually impaired individuals or foreigners living in Japan—in filling out complex Japanese government forms. Featuring a bilingual AI Audio Agent, users can easily converse with the AI in either English or Japanese. The AI will audibly ask the necessary questions, scan physical documents for information using the camera, and then accurately generate a fully formatted Japanese PDF ready for submission at the city hall, completely hands-free!
 
-* **`start_form_filling(self, form_type: str)`**
-  * **Role:**  *The Mode Switcher (Semantic Router)*
-  * **What it does:** A tool AI triggers when it realizes the user wants to fill out a form. It loads the blank fields from your JSON schema, generates a strict new set of rules (the Prompt), and instantly transforms the AI into a strict but polite "form-filling assistant."
-
-* **`open_my_files(self)`**
-  * **Role:**  *The Frontend Navigator*
-  * **What it does:** If the user asks to see their history, the AI triggers this. Right now it just prints a log, but eventually, this will send a signal to the frontend to redirect the app to the "My Files" screen.
-
-* **`submit_form_data(self, updated_json_string: str)`**
-  * **Role:**  *The Data Saver*
-  * **What it does:** Once the AI has successfully collected all answers and gotten the verbal signature, it bundles the data into a clean JSON string, generates a unique ID, and saves it locally as `result_xxxx.json`.
-
-* **`entrypoint(ctx: JobContext)`**
-  * **Role:**  *The Engine Starter*
-  * **What it does:** The main switch that turns everything on. It connects to the LiveKit room, equips the AI with STT (Ears), LLM (Brain), and TTS (Mouth), sets the speaking speed and patience level (VAD), and triggers the very first "Hello" message.
+**[日本語]**
+AmanAI（アマンAI）は、視覚障害のある方や日本に住む外国人が、複雑な日本の行政手続き書類を簡単に作成できるように支援する、プライバシー重視の音声対話型Webアプリです。ユーザーはAI音声エージェントと日本語または英語で自然に会話するだけで手続きを進めることができます。AIが必要な情報をヒアリングし、カメラを使って手元の書類をスキャンし、最終的に役所の窓口へそのまま提出できる正式な日本語フォーマットのPDFを自動的に生成します。
 
 ---
 
-##  `pdf_generate.py` (The Physical Rendering Engine)
-This file handles the mechanical rendering of extracted JSON data onto physical PDF coordinates.
+## ⚙️ Requirements (動作環境・必須条件)
 
-* **`convert_to_jp_era(year, month, day)`**
-  * **Role:**  *The Date Translator*
-  * **What it does:** Converts standard Western years (like 2026) into the correct Japanese traditional calendar format (Reiwa, Heisei, Showa) required by government forms.
-
-* **`fill_pdf_data(user_answers_path, mapping_json_path, ...)`**
-  * **Role:**  *The Print Manager*
-  * **What it does:** Opens the user's answers and the coordinate map (`mock_Mapping.json`). It then creates a completely transparent, invisible PDF "canvas" and hands it over to the drawing engine.
-
-* **`smart_fill_pdf(answers, mapping, c)`**
-  * **Role:**  *The Core Drawing Engine*
-  * **What it does:** The heavy lifter. It matches the user's answers to the exact X and Y coordinates on the map. It can draw regular text, split dates into separate boxes, draw circles for checkboxes, and split long strings into irregular grids.
-
-* **`merge_pdfs(blank_form_path, text_layer_path, final_output_path)`**
-  * **Role:**  *The Stamper*
-  * **What it does:** Takes the transparent canvas full of drawn text and acts like a physical rubber stamp, pressing it perfectly over the original, blank Ward Office PDF to create the final document.
+**[English]**
+- Node.js (v18+)
+- Python 3.10+
+- LiveKit Cloud Account (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` must be set)
+- OpenAI API Key (`OPENAI_API_KEY` for GPT-4o, Whisper STT, and TTS)
 
 ---
 
-##  Project Structure & Assets
+## 🚀 How to Run It (実行方法)
 
-| File / Folder | Description |
-| :--- | :--- |
-| **`server.py`** | Connects Frontend to Backend. Generates tokens for LiveKit API keys. |
-| **`/blank_form/`** | Directory containing the official PDF forms used for mapping and testing. |
-| **`心身障害福祉手当認定申請書.json`** | The original JSON schema used by the Agent to extract user information. |
-| **`心身障害福祉手当認定申請書_Mapping.json`** | The coordinate mapping JSON used by the rendering engine to draw on the PDF. |
-| **`result_f996172.json`** | Sample generated user info data used for testing/demos. |
+The application is split into a Next.js Frontend and a Python LiveKit AI Agent Backend. You need to run them simultaneously in three separate terminals.
+*(このアプリはフロントエンドとバックエンドに分かれています。以下の3つのコマンドを別々のターミナルで同時に実行してください。)*
 
----
+### 1. The Next.js Frontend (UI / フロントエンド)
+Navigate into the frontend directory and start the dev server.
+*(フロントエンドのディレクトリに移動し、サーバーを起動します。)*
+```bash
+cd ai-privacy-amanuensis
+npm run dev
+```
 
-##  Generated Outputs
+### 2. The Python LiveKit AI Agent (Backend / AIエージェント)
+At the root directory (`GDGJP-Hackathon`), start the Python Agent using the built-in virtual environment.
+*(プロジェクトのルートディレクトリで、Pythonの仮想環境からエージェントを起動します。)*
+```bash
+./ai-privacy-amanuensis/backend/.venv/bin/python Vision.py dev
+```
 
-When the pipeline completes, it generates the following files:
-
-* **`transparent_text.pdf`**: A transparent layer PDF containing only the generated text/answers.
-* **`Final_Filled_Application.pdf`**: The final, merged PDF ready for submission.
-
-
-
-## LiveKit creds
-LIVEKIT_URL=wss://jing-139sv34p.livekit.cloud
-LIVEKIT_API_KEY=APIDEhbphUuktPc
-LIVEKIT_API_SECRET=QHhPj1sA9t2bBQZJysHwCezpHyMEAC6ilqHTUj9cAGM
+### 3. Public Mobile Access Tunnel (Ngrok / モバイル実機テスト用)
+To use the microphone and camera on an iOS/Android device, the site MUST be served over HTTPS. Use ngrok to expose your local frontend to the web!
+*(スマートフォンからマイクやカメラ機能を使用するには、HTTPS接続が必須です。ngrokを使用してローカルの3000番ポートを公開してください！)*
+```bash
+cd ai-privacy-amanuensis
+npx ngrok http 3000
+```
+**Next Step (次のステップ):** Open the provided Ngrok HTTPS URL on your smartphone! *(ターミナルに表示された Ngrok の「HTTPS URL」をスマートフォンのブラウザで開いてテストしてください！)*

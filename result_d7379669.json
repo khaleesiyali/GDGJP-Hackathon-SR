@@ -1,0 +1,33 @@
+{
+  "form_name": "submit_nerima_welfare_form",
+  "submission_id": "d7379669",
+  "status": "completed",
+  "answers": {
+    "submission_date": "2026-03-27",
+    "recipient": {
+      "name": "中西",
+      "address_detail": "Ayase",
+      "dob": "2006-06-06",
+      "phone": "080-123-456-7"
+    },
+    "guardian": null,
+    "certificates": {},
+    "medical": {
+      "disease_name": "ポリオ"
+    },
+    "child_disability_allowance_receipt": "無",
+    "facility_admission": {
+      "status": "入所していない"
+    },
+    "public_account_usage": false,
+    "bank_transfer": {
+      "financial_institution_": "住友",
+      "financial_institution_type": "銀行",
+      "branch_code": "123",
+      "branch_name": "Ayase",
+      "account_number": "123456789",
+      "account_kana": "なかにし"
+    },
+    "proxy": null
+  }
+}
